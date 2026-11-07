@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simuladores CLP S7-300</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+:root {
+  --bg: #e9ecef; --card: #fff; --line: #d3d9df; --ink: #1f262e; --muted: #66717d; --accent: #009999;
+  --font-display: "Barlow Semi Condensed", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #14181d; --card: #1d232a; --line: #303842; --ink: #e6eaee; --muted: #97a1ad; --accent: #2cc4c4; color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--font-body); }
+.wrap { max-width: 960px; margin: 0 auto; padding: 32px max(16px, env(safe-area-inset-left)) 48px; }
+.eyebrow { font: 600 12px var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+h1 { font: 700 clamp(28px, 5vw, 40px)/1.05 var(--font-display); margin: 6px 0 8px; }
+p.sub { color: var(--muted); margin: 0 0 28px; max-width: 60ch; }
+h2 { font: 600 20px var(--font-display); margin: 28px 0 10px; }
+.list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+a.sim { display: grid; gap: 4px; padding: 16px 18px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; color: inherit; text-decoration: none; transition: border-color .15s; }
+a.sim:hover, a.sim:focus-visible { border-color: var(--accent); outline: none; }
+a.sim b { font: 600 18px var(--font-display); }
+a.sim span { color: var(--muted); font-size: 13.5px; }
+a.sim small { font: 500 12px var(--font-mono); color: var(--accent); }
+.soon { padding: 16px 18px; border: 1px dashed var(--line); border-radius: 12px; color: var(--muted); font-size: 13.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">CLP Siemens S7-300 · STEP 7 · CPU 312C</div>
+  <h1>Simuladores do curso</h1>
+  <p class="sub">Cada simulação mostra o Ladder em modo monitor, o circuito de potência e a máquina funcionando. Use os botões do painel para acionar as entradas.</p>
+
+  <h2>Aula 02</h2>
+  <div class="list">
+    <a class="sim" href="aula02/partida-reversao.html">
+      <small>Slides 23–24</small>
+      <b>Partida direta com reversão</b>
+      <span>Selo, intertravamento por contato NF e inversão de fases com K1 e K2.</span>
+    </a>
+    <div class="soon">Próximas simulações aparecem aqui.</div>
+  </div>
+</div>
+</body>
+</html>

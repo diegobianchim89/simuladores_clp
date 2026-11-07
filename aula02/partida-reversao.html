@@ -1,0 +1,726 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Partida com Reversão</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: bancada didática — painel de botoeiras à esquerda; à direita o OB1 em Ladder (modo monitor do STEP 7) sobre o circuito de potência com o motor. */
+:root {
+  --bg: #e9ecef;
+  --card: #ffffff;
+  --line: #d3d9df;
+  --ink: #1f262e;
+  --muted: #66717d;
+  --accent: #009999;          /* petróleo industrial */
+  --flow: #13a538;            /* STEP 7 monitor: fluxo de sinal */
+  --noflow: #2d62c9;          /* STEP 7 monitor: sem fluxo (tracejado) */
+  --coil: #e8781a;
+  --ok: #1e9e55;
+  --bad: #d63031;
+  --warn-bg: #fff1c9; --warn-fg: #6b4a00;
+  --info-bg: #e1ecfa; --info-fg: #17457f;
+  --good-bg: #ddf3e5; --good-fg: #145c33;
+  --idle-bg: #f0f2f5;
+  --l1: #96491e; --l2: #1e2024; --l3: #767d88;
+  --dead: #cfd5dc;
+  --motor-a: #7896b4; --motor-b: #3b546e; --fin: #9aa2ac; --rotor: #28303a; --blade: #cfd6de;
+  --cmt-bg: #e6f4df; --cmt-fg: #2c5a1f;
+  --led-off: #4a525d; --strip: #2b3139; --strip-fg: #d7dce2;
+  --font-display: "Barlow Semi Condensed", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", Consolas, "Courier New", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14181d; --card: #1d232a; --line: #303842; --ink: #e6eaee; --muted: #97a1ad;
+    --accent: #2cc4c4; --flow: #3ed366; --noflow: #6f9cf2; --coil: #f08a2e; --ok: #3cc077; --bad: #f05252;
+    --warn-bg: #3d3214; --warn-fg: #f5d98a; --info-bg: #182a44; --info-fg: #a9c8f4;
+    --good-bg: #16331f; --good-fg: #9be0b4; --idle-bg: #242b33;
+    --l1: #c2703f; --l2: #e4e7eb; --l3: #8f98a4; --dead: #3a434d;
+    --motor-a: #5d7a98; --motor-b: #2c3f54; --fin: #5a6370; --rotor: #0f1318; --blade: #b9c2cc;
+    --cmt-bg: #1e3320; --cmt-fg: #a9d99a; --led-off: #3b424c; --strip: #0f1216; --strip-fg: #c9ced5;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #14181d; --card: #1d232a; --line: #303842; --ink: #e6eaee; --muted: #97a1ad;
+  --accent: #2cc4c4; --flow: #3ed366; --noflow: #6f9cf2; --coil: #f08a2e; --ok: #3cc077; --bad: #f05252;
+  --warn-bg: #3d3214; --warn-fg: #f5d98a; --info-bg: #182a44; --info-fg: #a9c8f4;
+  --good-bg: #16331f; --good-fg: #9be0b4; --idle-bg: #242b33;
+  --l1: #c2703f; --l2: #e4e7eb; --l3: #8f98a4; --dead: #3a434d;
+  --motor-a: #5d7a98; --motor-b: #2c3f54; --fin: #5a6370; --rotor: #0f1318; --blade: #b9c2cc;
+  --cmt-bg: #1e3320; --cmt-fg: #a9d99a; --led-off: #3b424c; --strip: #0f1216; --strip-fg: #c9ced5;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; }
+[hidden] { display: none !important; }
+.back { display: inline-block; margin-bottom: 10px; color: var(--muted); font-size: 13px; text-decoration: none; }
+.back:hover { color: var(--accent); }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 15px; line-height: 1.45;
+}
+.wrap {
+  max-width: 1280px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 28px;
+  display: grid; gap: 16px;
+}
+header { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: end; justify-content: space-between; }
+.eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(26px, 4vw, 36px); line-height: 1.05; margin: 4px 0 0; text-wrap: balance; letter-spacing: .005em; }
+.sub { color: var(--muted); margin: 6px 0 0; }
+
+.toggle { display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; font-weight: 500; }
+.toggle input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.track { width: 44px; height: 24px; border-radius: 12px; background: var(--dead); position: relative; transition: background .15s; flex: none; }
+.track::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--card); transition: transform .15s; box-shadow: 0 1px 2px rgba(0,0,0,.25); }
+.toggle input:checked + .track { background: var(--accent); }
+.toggle input:checked + .track::after { transform: translateX(20px); }
+.toggle input:focus-visible + .track { outline: 2px solid var(--accent); outline-offset: 2px; }
+.toggle small { display: block; color: var(--muted); font-weight: 400; font-size: 12.5px; }
+
+.grid { display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 16px; align-items: start; }
+.stack { display: grid; gap: 16px; min-width: 0; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; min-width: 0; }
+.card h2 { font-family: var(--font-display); font-weight: 600; font-size: 21px; margin: 0; letter-spacing: .01em; }
+.card .hint { color: var(--muted); font-size: 13px; margin: 2px 0 0; }
+.card-head { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+
+/* Botoeiras */
+.panel { display: grid; gap: 18px; margin-top: 14px; }
+.pb { display: grid; grid-template-columns: auto 1fr; gap: 4px 8px; align-items: center; }
+.pb button {
+  grid-row: span 3; margin: 10px;
+  width: 84px; height: 84px; border-radius: 50%; border: 0; padding: 0; cursor: pointer;
+  background: radial-gradient(circle at 38% 32%, color-mix(in srgb, var(--c) 55%, #fff) 0 8%, var(--c) 55%, color-mix(in srgb, var(--c) 70%, #000) 100%);
+  box-shadow: 0 0 0 7px #4a5058, 0 0 0 9px #2e3238, 0 5px 10px rgba(0,0,0,.35);
+  color: rgba(255,255,255,.92); font-family: var(--font-display); font-weight: 700; font-size: 30px;
+  touch-action: none; -webkit-user-select: none; user-select: none;
+  transition: transform .06s, filter .06s;
+}
+.pb button.down { transform: scale(.9); filter: brightness(.82); box-shadow: 0 0 0 11px #4a5058, 0 0 0 13px #2e3238, 0 1px 3px rgba(0,0,0,.4); }
+.pb button:focus-visible { outline: 3px solid var(--accent); outline-offset: 12px; }
+.pb .name { font-weight: 600; font-size: 14px; }
+.pb .addr { font-family: var(--font-mono); font-size: 12.5px; color: var(--muted); }
+.chip { justify-self: start; font-family: var(--font-mono); font-size: 13px; font-weight: 600; padding: 2px 10px; border-radius: 6px; background: var(--idle-bg); color: var(--muted); }
+.chip.on { background: var(--ok); color: #fff; }
+.kbd { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; color: var(--muted); }
+.panel-foot { margin-top: 16px; font-size: 12.5px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 12px; display: grid; gap: 6px; }
+
+/* Ladder */
+.lad-scroll { overflow-x: auto; }
+svg { display: block; width: 100%; height: auto; }
+.lad-net-title { font-family: var(--font-mono); font-size: 13px; font-weight: 600; fill: var(--ink); }
+.lad-cmt { fill: var(--cmt-bg); }
+.lad-cmt-t { font-family: var(--font-mono); font-size: 12px; fill: var(--cmt-fg); }
+.lad-sym { font-family: var(--font-mono); font-size: 12px; fill: var(--noflow); }
+.lad-adr { font-family: var(--font-mono); font-size: 10.5px; fill: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12.5px; color: var(--muted); }
+.legend i { display: inline-block; width: 26px; height: 0; vertical-align: middle; margin-right: 6px; border-top: 3px solid var(--flow); }
+.legend i.no { border-top: 2px dashed var(--noflow); }
+
+/* Potência */
+.pw-label { font-family: var(--font-body); font-size: 12px; font-weight: 600; }
+.pw-small { font-family: var(--font-body); font-size: 11.5px; fill: var(--muted); font-style: italic; }
+.pw-tag { font-family: var(--font-mono); font-size: 11px; }
+.rpm { font-family: var(--font-display); font-weight: 700; font-size: 30px; fill: var(--ink); font-variant-numeric: tabular-nums; }
+
+.banner { border-radius: 10px; padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; background: var(--idle-bg); color: var(--ink); }
+.banner b { display: block; font-size: 15px; }
+.banner span { font-size: 13.5px; }
+.banner.good { background: var(--good-bg); color: var(--good-fg); }
+.banner.info { background: var(--info-bg); color: var(--info-fg); }
+.banner.warn { background: var(--warn-bg); color: var(--warn-fg); }
+.banner.bad { background: var(--bad); color: #fff; }
+.banner button { font: 600 14px var(--font-body); padding: 8px 16px; border-radius: 8px; border: 0; background: #fff; color: var(--bad); cursor: pointer; }
+.banner button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+
+/* LEDs da CPU 312C */
+.strip { background: var(--strip); color: var(--strip-fg); border-radius: 12px; padding: 14px 18px; display: flex; flex-wrap: wrap; gap: 14px 32px; }
+.strip h3 { margin: 0 0 8px; font: 600 12px var(--font-mono); letter-spacing: .07em; text-transform: uppercase; opacity: .8; }
+.leds { display: flex; flex-wrap: wrap; gap: 6px 4px; }
+.led { width: 58px; display: grid; justify-items: center; gap: 3px; }
+.led i { width: 14px; height: 14px; border-radius: 50%; background: var(--led-off); box-shadow: inset 0 0 0 1px rgba(0,0,0,.4); }
+.led.in.on i { background: #4cd964; box-shadow: 0 0 8px #4cd964; }
+.led.out.on i { background: #ffb020; box-shadow: 0 0 8px #ffb020; }
+.led span { font: 500 11px var(--font-mono); }
+.led em { font: 600 9.5px var(--font-body); font-style: normal; opacity: .75; min-height: 13px; }
+
+.pw-coil { font-size: 14px; font-weight: 700; }
+.pw-motor { font-size: 15px; font-weight: 700; }
+.pw-dir { font-size: 13px; font-weight: 500; }
+.pw-seq { font-style: normal; }
+
+/* Barra de botoeiras fixa no rodapé (celular e tablet) */
+.mbar { display: none; }
+.mbar button {
+  width: 56px; height: 56px; border-radius: 50%; border: 0; padding: 0; cursor: pointer;
+  background: radial-gradient(circle at 38% 32%, color-mix(in srgb, var(--c) 55%, #fff) 0 8%, var(--c) 55%, color-mix(in srgb, var(--c) 70%, #000) 100%);
+  box-shadow: 0 0 0 5px #4a5058, 0 0 0 6px #2e3238, 0 3px 6px rgba(0,0,0,.35);
+  color: rgba(255,255,255,.92); font: 700 22px var(--font-display);
+  touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+  margin: 6px 0 4px;
+}
+.mbar button.down { transform: scale(.88); filter: brightness(.82); }
+.mbar button:focus-visible { outline: 3px solid var(--accent); outline-offset: 8px; }
+.mb { display: grid; justify-items: center; gap: 1px; text-align: center; min-width: 0; }
+.mb b { font: 600 12.5px var(--font-mono); }
+.mb span { font: 400 11px var(--font-mono); color: var(--muted); }
+.mb .chip { justify-self: center; margin-top: 3px; font-size: 12px; padding: 0 9px; }
+
+@media (max-width: 900px) {
+  .grid { grid-template-columns: minmax(0, 1fr); }
+  aside.card { display: none; }
+  .mbar {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+    background: color-mix(in srgb, var(--card) 94%, transparent);
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    border-top: 1px solid var(--line); box-shadow: 0 -4px 14px rgba(0,0,0,.12);
+    padding-top: 8px; padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .wrap { padding-block-end: 150px; }
+}
+/* Telas estreitas: textos maiores dentro dos diagramas para continuarem legíveis */
+@media (max-width: 620px) {
+  .lad-net-title { font-size: 18px; }
+  .lad-cmt-t { font-size: 15px; }
+  .lad-sym { font-size: 17px; transform: translateY(-6px); }
+  .lad-adr { font-size: 14px; }
+  .pw-label { font-size: 17px; }
+  .pw-tag { font-size: 15px; }
+  .pw-coil { font-size: 19px; }
+  .pw-motor { font-size: 20px; }
+  .pw-dir { font-size: 15.5px; }
+  .pw-seq { font-size: 16px; }
+  .pw-sum { display: none; }
+  .rpm { font-size: 40px; }
+  .card { padding: 14px 12px; }
+  .card-head .hint { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .pb button, .track, .track::after { transition: none; } }
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="../">← Todas as simulações</a>
+      <div class="eyebrow">CLP S7-300 · CPU 312C · Aula 02 · slides 23–24</div>
+      <h1>Partida direta com reversão</h1>
+      <p class="sub">Segure os botões do painel e acompanhe o OB1 em modo monitor, os contatores e o motor.</p>
+    </div>
+    <label class="toggle" for="interlock">
+      <input type="checkbox" id="interlock" checked>
+      <span class="track"></span>
+      <span>Intertravamento<small id="interlockTxt">NF de REVERSA e DIRETA no programa</small></span>
+    </label>
+  </header>
+
+  <div class="grid">
+    <aside class="card">
+      <h2>Painel de comando</h2>
+      <p class="hint">Clique e segure cada botão</p>
+      <div class="panel">
+        <div class="pb">
+          <button id="bDir" style="--c:#1fa653" aria-label="LIGA DIRETA, I124.0">I</button>
+          <div class="name">LIGA DIRETA <span class="addr">(NA)</span></div>
+          <div class="addr">"LIGA_DIR" I124.0</div>
+          <div class="chip" data-chip="dir">0</div>
+        </div>
+        <div class="pb">
+          <button id="bRev" style="--c:#2b78cc" aria-label="LIGA REVERSA, I124.1">I</button>
+          <div class="name">LIGA REVERSA <span class="addr">(NA)</span></div>
+          <div class="addr">"LIGA_REV" I124.1</div>
+          <div class="chip" data-chip="rev">0</div>
+        </div>
+        <div class="pb">
+          <button id="bDesl" style="--c:#d23a3a" aria-label="DESLIGA, I125.0, contato NF">O</button>
+          <div class="name">DESLIGA <span class="addr">(NF)</span></div>
+          <div class="addr">"DESL" I125.0</div>
+          <div class="chip" data-chip="desl">1</div>
+        </div>
+      </div>
+      <div class="panel-foot">
+        <div>Teclado: segure <span class="kbd">D</span> direta, <span class="kbd">R</span> reversa, <span class="kbd">S</span> desliga.</div>
+        <div>DESLIGA é NF: a entrada fica em 1 com o botão solto e vai a 0 quando ele é pressionado.</div>
+      </div>
+    </aside>
+
+    <div class="stack">
+      <section class="card">
+        <div class="card-head">
+          <h2>OB1 · Ladder (monitor)</h2>
+          <div class="legend"><span><i></i>com fluxo de sinal</span><span><i class="no"></i>sem fluxo</span></div>
+        </div>
+        <div class="lad-scroll"><svg id="ladder" viewBox="0 0 600 392" role="img" aria-label="Ladder das networks 1 e 2 em modo monitor"></svg></div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>Circuito de potência</h2>
+          <span class="hint">Cores de fase IEC: L1 marrom, L2 preto, L3 cinza</span>
+        </div>
+        <div class="lad-scroll"><svg id="power" viewBox="0 0 760 380" role="img" aria-label="Diagrama de potência com contatores K1 e K2 e motor trifásico"></svg></div>
+        <div class="banner" id="banner" role="status" aria-live="polite"><div><b id="bnT"></b><span id="bnB"></span></div><button id="rearm" hidden>Rearmar Q1</button></div>
+      </section>
+    </div>
+  </div>
+
+  <nav class="mbar" aria-label="Botoeiras">
+    <div class="mb"><button id="mDir" style="--c:#1fa653" aria-label="LIGA DIRETA, I124.0">I</button><b>LIGA_DIR</b><span>I124.0 · NA</span><div class="chip" data-chip="dir">0</div></div>
+    <div class="mb"><button id="mRev" style="--c:#2b78cc" aria-label="LIGA REVERSA, I124.1">I</button><b>LIGA_REV</b><span>I124.1 · NA</span><div class="chip" data-chip="rev">0</div></div>
+    <div class="mb"><button id="mDesl" style="--c:#d23a3a" aria-label="DESLIGA, I125.0, contato NF">O</button><b>DESL</b><span>I125.0 · NF</span><div class="chip" data-chip="desl">1</div></div>
+  </nav>
+
+  <section class="strip" aria-label="LEDs de entrada e saída da CPU 312C">
+    <div><h3>Entradas DI · I124.0 a I125.1</h3><div class="leds" id="ledsIn"></div></div>
+    <div><h3>Saídas DO · Q124.0 a Q124.5</h3><div class="leds" id="ledsOut"></div></div>
+  </section>
+</div>
+
+<script>
+(() => {
+  const NS = "http://www.w3.org/2000/svg";
+  const $ = id => document.getElementById(id);
+  function el(parent, tag, attrs = {}, text) {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (text != null) e.textContent = text;
+    parent.appendChild(e);
+    return e;
+  }
+
+  // ---------------- Estado ----------------
+  const S = {
+    mouse: { dir: false, rev: false, desl: false },
+    I: { ligaDir: false, ligaRev: false, desl: true },
+    Q: { direta: false, reversa: false },
+    interlock: true,
+    tripped: false,
+    speed: 0, angle: 0, plug: 0, blink: 0,
+  };
+  const flow = { n1: {}, n2: {} };
+
+  // ---------------- Varredura do OB1 (slide 24) ----------------
+  function scan() {
+    S.I.ligaDir = S.mouse.dir;
+    S.I.ligaRev = S.mouse.rev;
+    S.I.desl = !S.mouse.desl;           // botão NF
+
+    // Network 1: Giro direto
+    const a1 = S.I.desl;
+    const top1 = a1 && S.I.ligaDir;
+    const bot1 = a1 && S.Q.direta;
+    const b1 = top1 || bot1;
+    const c1 = S.interlock ? b1 && !S.Q.reversa : b1;
+    S.Q.direta = c1;
+    flow.n1 = { a: a1, top: top1, bot: bot1, b: b1, c: c1, nf: !S.Q.reversa };
+
+    // Network 2: Giro reverso (já enxerga DIRETA atualizada nesta varredura)
+    const a2 = S.I.desl;
+    const top2 = a2 && S.I.ligaRev;
+    const bot2 = a2 && S.Q.reversa;
+    const b2 = top2 || bot2;
+    const c2 = S.interlock ? b2 && !S.Q.direta : b2;
+    S.Q.reversa = c2;
+    flow.n2 = { a: a2, top: top2, bot: bot2, b: b2, c: c2, nf: !S.Q.direta };
+  }
+
+  // ---------------- Física do motor ----------------
+  function physics(dt) {
+    S.blink += dt;
+    const K1 = S.Q.direta, K2 = S.Q.reversa;
+    if (K1 && K2) S.tripped = true;
+    let target = 0;
+    if (!S.tripped && K1 && !K2) target = 1;
+    else if (!S.tripped && K2 && !K1) target = -1;
+
+    if (target !== 0 && Math.sign(target) !== Math.sign(S.speed) && Math.abs(S.speed) > 0.15) {
+      S.plug = 2.5;
+      S.speed += Math.sign(target) * dt / 0.35;
+    } else if (target !== 0) {
+      S.speed += (target - S.speed) * Math.min(1, dt / 0.55);
+    } else {
+      S.speed += (0 - S.speed) * Math.min(1, dt / 1.6);
+      if (Math.abs(S.speed) < 0.003) S.speed = 0;
+    }
+    S.speed = Math.max(-1, Math.min(1, S.speed));
+    S.angle = (S.angle + S.speed * 420 * dt) % 360;
+    if (S.plug > 0) S.plug -= dt;
+  }
+
+  // ---------------- Ladder ----------------
+  const L = $("ladder");
+  const lad = { n1: {}, n2: {} };
+
+  function buildNetwork(key, y0, title, comment, sym) {
+    const g = el(L, "g");
+    el(g, "text", { x: 6, y: y0 + 14, class: "lad-net-title" }, title);
+    el(g, "rect", { x: 6, y: y0 + 22, width: 588, height: 22, rx: 3, class: "lad-cmt" });
+    el(g, "text", { x: 12, y: y0 + 37, class: "lad-cmt-t" }, comment);
+
+    const yr = y0 + 92, yb = y0 + 160;          // linha principal e ramo paralelo
+    const R = lad[key];
+    const seg = (x1, y1, x2, y2) => el(g, "line", { x1, y1, x2, y2, "stroke-linecap": "round" });
+
+    el(g, "line", { x1: 12, y1: y0 + 58, x2: 12, y2: yb + 12, stroke: "var(--ink)", "stroke-width": 3 });
+
+    R.s0 = [seg(12, yr, 66, yr)];
+    R.c1 = contact(g, 80, yr, false, sym.desl, "I125.0");
+    R.s1 = [seg(94, yr, 150, yr), seg(150, yr, 150, yb), seg(150, yb, 196, yb), seg(150, yr, 196, yr)];
+    R.cTop = contact(g, 210, yr, false, sym.liga, sym.ligaAdr);
+    R.cBot = contact(g, 210, yb, false, sym.self, sym.selfAdr);
+    R.sTop = [seg(224, yr, 270, yr)];
+    R.sBot = [seg(224, yb, 270, yb), seg(270, yb, 270, yr)];
+    R.sB = [seg(270, yr, 336, yr)];
+    R.c3 = contact(g, 350, yr, true, sym.other, sym.otherAdr);
+    R.bypass = el(g, "line", { x1: 336, y1: yr, x2: 364, y2: yr, "stroke-linecap": "round" });
+    R.bypassTxt = el(g, "text", { x: 350, y: yr + 28, "text-anchor": "middle", class: "lad-adr", fill: "var(--bad)" }, "NF removido");
+    R.sC = [seg(364, yr, 478, yr)];
+    R.coil = coil(g, 496, yr, sym.self, sym.selfAdr);
+  }
+
+  function contact(g, cx, y, nf, symName, adr) {
+    const c = {};
+    c.sym = el(g, "text", { x: cx, y: y - 30, "text-anchor": "middle", class: "lad-sym" }, `"${symName}"`);
+    el(g, "text", { x: cx, y: y - 17, "text-anchor": "middle", class: "lad-adr" }, adr);
+    c.bars = [
+      el(g, "line", { x1: cx - 6, y1: y - 11, x2: cx - 6, y2: y + 11, "stroke-width": 2.4 }),
+      el(g, "line", { x1: cx + 6, y1: y - 11, x2: cx + 6, y2: y + 11, "stroke-width": 2.4 }),
+    ];
+    c.in = el(g, "line", { x1: cx - 14, y1: y, x2: cx - 6, y2: y });
+    c.out = el(g, "line", { x1: cx + 6, y1: y, x2: cx + 14, y2: y });
+    if (nf) c.bars.push(el(g, "line", { x1: cx - 9, y1: y + 10, x2: cx + 9, y2: y - 10, "stroke-width": 2 }));
+    c.group = [c.sym, c.in, c.out, ...c.bars];
+    return c;
+  }
+
+  function coil(g, cx, y, symName, adr) {
+    const c = {};
+    c.sym = el(g, "text", { x: cx, y: y - 30, "text-anchor": "middle", class: "lad-sym" }, `"${symName}"`);
+    el(g, "text", { x: cx, y: y - 17, "text-anchor": "middle", class: "lad-adr" }, adr);
+    c.fill = el(g, "circle", { cx, cy: y, r: 11, stroke: "none" });
+    c.arcs = [
+      el(g, "path", { d: `M ${cx - 6} ${y - 11} A 14 14 0 0 0 ${cx - 6} ${y + 11}`, fill: "none", "stroke-width": 2.4 }),
+      el(g, "path", { d: `M ${cx + 6} ${y - 11} A 14 14 0 0 1 ${cx + 6} ${y + 11}`, fill: "none", "stroke-width": 2.4 }),
+    ];
+    c.in = el(g, "line", { x1: cx - 18, y1: y, x2: cx - 9, y2: y });
+    return c;
+  }
+
+  buildNetwork("n1", 0, "Network 1 : Giro direto", "Partida do motor no sentido convencional",
+    { desl: "DESL", liga: "LIGA_DIR", ligaAdr: "I124.0", self: "DIRETA", selfAdr: "Q124.0", other: "REVERSA", otherAdr: "Q124.1" });
+  buildNetwork("n2", 200, "Network 2 : Giro reverso", "Partida do motor com sentido reverso ao convencional",
+    { desl: "DESL", liga: "LIGA_REV", ligaAdr: "I124.1", self: "REVERSA", selfAdr: "Q124.1", other: "DIRETA", otherAdr: "Q124.0" });
+
+  function paintWire(lines, on) {
+    for (const l of lines) {
+      l.style.stroke = on ? "var(--flow)" : "var(--noflow)";
+      l.style.strokeWidth = on ? "3.2" : "1.8";
+      l.style.strokeDasharray = on ? "none" : "5 4";
+    }
+  }
+  function paintContact(c, closed, outOn) {
+    for (const b of c.bars) b.style.stroke = outOn ? "var(--flow)" : "var(--noflow)";
+    paintWire([c.in, c.out], outOn);
+    c.in.style.strokeDasharray = c.out.style.strokeDasharray = "none";
+    c.sym.style.fill = closed ? "var(--flow)" : "var(--noflow)";
+    c.sym.style.fontWeight = closed ? "600" : "400";
+  }
+
+  function renderLadder() {
+    for (const key of ["n1", "n2"]) {
+      const R = lad[key], f = flow[key];
+      const self = key === "n1" ? S.Q.direta : S.Q.reversa;
+      const liga = key === "n1" ? S.I.ligaDir : S.I.ligaRev;
+      paintWire(R.s0, true);
+      paintContact(R.c1, S.I.desl, f.a);
+      paintWire(R.s1, f.a);
+      paintContact(R.cTop, liga, f.top);
+      paintContact(R.cBot, self, f.bot);
+      paintWire(R.sTop, f.top);
+      paintWire(R.sBot, f.bot);
+      paintWire(R.sB, f.b);
+      const showNF = S.interlock;
+      R.c3.group.forEach(e => e.style.display = showNF ? "" : "none");
+      R.bypass.style.display = R.bypassTxt.style.display = showNF ? "none" : "";
+      if (showNF) paintContact(R.c3, f.nf, f.c); else paintWire([R.bypass], f.b);
+      paintWire(R.sC, f.c);
+      R.coil.arcs.forEach(a => a.style.stroke = f.c ? "var(--flow)" : "var(--noflow)");
+      paintWire([R.coil.in], f.c);
+      R.coil.in.style.strokeDasharray = "none";
+      R.coil.fill.style.fill = f.c ? "color-mix(in srgb, var(--flow) 22%, transparent)" : "transparent";
+      R.coil.sym.style.fill = f.c ? "var(--flow)" : "var(--noflow)";
+      R.coil.sym.style.fontWeight = f.c ? "600" : "400";
+    }
+  }
+
+  // ---------------- Circuito de potência ----------------
+  const P = $("power");
+  const PH = ["L1", "L2", "L3"], PV = ["var(--l1)", "var(--l2)", "var(--l3)"], TERM = ["U1", "V1", "W1"];
+  const BusY = [34, 54, 74], OutY = [296, 316, 336];
+  const K1X = [120, 150, 180], K2X = [300, 330, 360];
+  const KTop = 140, KBot = 232, yA = KTop + 24, yB = KTop + 66, HOP = 5;
+  const K1Map = [0, 1, 2], K2Map = [2, 1, 0];       // fase que chega em U1, V1, W1
+  const binds = [];                                  // [elemento, propriedade, função]
+  const bind = (e, prop, fn) => binds.push([e, prop, fn]);
+
+  function terminalPhase(t) {
+    const K1 = S.Q.direta, K2 = S.Q.reversa;
+    if (K1 && K2) return K1Map[t] === K2Map[t] ? (S.tripped ? -1 : K1Map[t]) : -2;
+    if (S.tripped) return -1;
+    if (K1) return K1Map[t];
+    if (K2) return K2Map[t];
+    return -1;
+  }
+  const phaseColor = ph => ph === -2 ? (Math.floor(S.blink * 4) % 2 === 0 ? "var(--bad)" : "var(--dead)") : ph < 0 ? "var(--dead)" : PV[ph];
+  const supply = () => !S.tripped;
+
+  function vwire(x, y1, y2, crossings) {
+    let d = `M ${x} ${y1}`;
+    for (const c of [...crossings].sort((a, b) => a - b)) {
+      if (c <= y1 + HOP || c >= y2 - HOP) continue;
+      d += ` L ${x} ${c - HOP} A ${HOP} ${HOP} 0 0 1 ${x} ${c + HOP}`;
+    }
+    return d + ` L ${x} ${y2}`;
+  }
+  const dot = (x, y, fn) => bind(el(P, "circle", { cx: x, cy: y, r: 4.5 }), "fill", fn);
+
+  // Rede L1 L2 L3
+  for (let i = 0; i < 3; i++) {
+    bind(el(P, "line", { x1: 20, y1: BusY[i], x2: 392, y2: BusY[i], "stroke-width": 3 }), "stroke", () => supply() ? PV[i] : "var(--dead)");
+    bind(el(P, "text", { x: 398, y: BusY[i] + 4, class: "pw-label" }, PH[i]), "fill", () => supply() ? PV[i] : "var(--muted)");
+  }
+  const q1 = el(P, "text", { x: 20, y: 98, class: "pw-label" });
+  bind(q1, "text", () => S.tripped ? "Q1 DESARMADO" : "Q1 armado");
+  bind(q1, "fill", () => S.tripped ? "var(--bad)" : "var(--muted)");
+
+  // Barramento dos bornes do motor
+  for (let t = 0; t < 3; t++) {
+    const ln = el(P, "line", { x1: K1X[0] - 12, y1: OutY[t], x2: 470, y2: OutY[t] });
+    bind(ln, "stroke", () => phaseColor(terminalPhase(t)));
+    bind(ln, "stroke-width", () => terminalPhase(t) === -1 ? 2.4 : 3);
+    const lb = el(P, "text", { x: 398, y: OutY[t] - 6, class: "pw-label" });
+    bind(lb, "text", () => { const p = terminalPhase(t); return TERM[t] + (p >= 0 ? " ← " + PH[p] : p === -2 ? " L1+L3!" : ""); });
+    bind(lb, "fill", () => { const p = terminalPhase(t); return p === -1 ? "var(--muted)" : p === -2 ? "var(--bad)" : PV[p]; });
+  }
+
+  function contactor(xs, tag, sym, adr, isOn, map) {
+    const x0 = xs[0] - 18, x1 = xs[2] + 14;
+    const live = () => isOn() && supply();
+    for (let i = 0; i < 3; i++) {
+      const cr = BusY.filter((_, j) => j > i);
+      bind(el(P, "path", { d: vwire(xs[i], BusY[i], KTop, cr), fill: "none", "stroke-width": 2.4 }), "stroke", () => supply() ? PV[i] : "var(--dead)");
+      dot(xs[i], BusY[i], () => supply() ? PV[i] : "var(--dead)");
+    }
+    const body = el(P, "rect", { x: x0, y: KTop, width: x1 - x0, height: KBot - KTop, rx: 8, "stroke-width": 1.5 });
+    bind(body, "fill", () => isOn() ? "color-mix(in srgb, var(--coil) 12%, var(--card))" : "var(--idle-bg)");
+    bind(body, "stroke", () => isOn() ? "var(--coil)" : "var(--line)");
+
+    for (let i = 0; i < 3; i++) {
+      const x = xs[i];
+      bind(el(P, "line", { x1: x, y1: KTop, x2: x, y2: yA, "stroke-width": 2.6 }), "stroke", () => supply() ? PV[i] : "var(--dead)");
+      const blade = el(P, "line", { x1: x, y1: yB, "stroke-width": 2.6, "stroke-linecap": "round" });
+      bind(blade, "stroke", () => supply() ? PV[i] : "var(--dead)");
+      bind(blade, "x2", () => isOn() ? x : x - 14);
+      bind(blade, "y2", () => isOn() ? yA : yA + 4);
+      bind(el(P, "line", { x1: x, y1: yB, x2: x, y2: KBot, "stroke-width": 2.6 }), "stroke", () => live() ? PV[i] : "var(--dead)");
+    }
+
+    // Bobina ao lado, com ligação mecânica tracejada
+    const ym = (yA + yB) / 2;
+    const cr = el(P, "rect", { x: x0 - 74, y: ym - 14, width: 60, height: 28, rx: 5, "stroke-width": 1.5 });
+    bind(cr, "fill", () => isOn() ? "var(--coil)" : "var(--card)");
+    bind(cr, "stroke", () => isOn() ? "var(--coil)" : "var(--muted)");
+    const ct = el(P, "text", { x: x0 - 44, y: ym + 5, "text-anchor": "middle", class: "pw-label pw-coil" }, tag);
+    bind(ct, "fill", () => isOn() ? "#fff" : "var(--ink)");
+    [sym, adr].forEach((t, k) => bind(el(P, "text", { x: x0 - 44, y: ym + 30 + k * 14, "text-anchor": "middle", class: "pw-tag" }, t), "fill", () => isOn() ? "var(--coil)" : "var(--muted)"));
+    const dashes = [];
+    dashes.push(el(P, "line", { x1: x0 - 14, y1: ym, y2: ym, "stroke-width": 1.3, "stroke-dasharray": "4 3" }));
+    for (let i = 0; i < 2; i++) dashes.push(el(P, "line", { y1: ym, y2: ym, "stroke-width": 1.3, "stroke-dasharray": "4 3" }));
+    dashes.forEach((d, k) => {
+      bind(d, "stroke", () => isOn() ? "var(--coil)" : "var(--muted)");
+      const dx = () => isOn() ? 0 : -7;
+      if (k === 0) bind(d, "x2", () => xs[0] + dx() - 5);
+      else { bind(d, "x1", () => xs[k - 1] + dx() + 5); bind(d, "x2", () => xs[k] + dx() - 5); }
+    });
+
+    // Saídas descendo até o borne certo; só "pulam" os barramentos
+    for (let i = 0; i < 3; i++) {
+      const t = map.indexOf(i);
+      const colorFn = () => (S.Q.direta && S.Q.reversa && terminalPhase(t) === -2) ? phaseColor(-2) : live() ? PV[i] : "var(--dead)";
+      bind(el(P, "path", { d: vwire(xs[i], KBot, OutY[t], OutY.slice(0, t)), fill: "none", "stroke-width": 2.6 }), "stroke", colorFn);
+      dot(xs[i], OutY[t], colorFn);
+    }
+  }
+  contactor(K1X, "K1", "DIRETA", "Q124.0", () => S.Q.direta, K1Map);
+  contactor(K2X, "K2", "REVERSA", "Q124.1", () => S.Q.reversa, K2Map);
+  el(P, "text", { x: K1X[0] - 60, y: OutY[2] + 26, class: "pw-small pw-sum" }, "K1: L1→U1  L2→V1  L3→W1");
+  el(P, "text", { x: K2X[0] - 60, y: OutY[2] + 26, class: "pw-small pw-sum" }, "K2: L1→W1  L2→V1  L3→U1");
+
+  // Motor
+  const MC = { x: 640, y: 214 }, MR = 84;
+  for (let i = 0; i < 3; i++) {
+    const ty = MC.y - 22 + i * 22;
+    bind(el(P, "polyline", { points: `470,${OutY[i]} 486,${OutY[i]} ${500 + 6 * (3 - i)},${ty} ${MC.x - MR - 14},${ty}`, fill: "none", "stroke-width": 3, "stroke-linejoin": "round" }),
+      "stroke", () => phaseColor(terminalPhase(i)));
+  }
+  const defs = el(P, "defs");
+  const grad = el(defs, "linearGradient", { id: "housing", x1: 0, y1: 0, x2: 1, y2: 1 });
+  el(grad, "stop", { offset: "0", style: "stop-color:var(--motor-a)" });
+  el(grad, "stop", { offset: "1", style: "stop-color:var(--motor-b)" });
+  const arrow = el(defs, "marker", { id: "arr", viewBox: "0 0 10 10", refX: 5, refY: 5, markerWidth: 4, markerHeight: 4, orient: "auto-start-reverse" });
+  const arrowHead = el(arrow, "path", { d: "M 0 0 L 10 5 L 0 10 z" });
+  for (let k = 0; k < 24; k++) {
+    const a = k * Math.PI * 2 / 24;
+    el(P, "line", { x1: MC.x + Math.cos(a) * (MR - 4), y1: MC.y + Math.sin(a) * (MR - 4), x2: MC.x + Math.cos(a) * (MR + 11), y2: MC.y + Math.sin(a) * (MR + 11), "stroke-width": 5, style: "stroke:var(--fin)" });
+  }
+  el(P, "circle", { cx: MC.x, cy: MC.y, r: MR, fill: "url(#housing)" });
+  el(P, "rect", { x: MC.x - MR - 22, y: MC.y - 36, width: 24, height: 72, rx: 4, style: "fill:var(--motor-b)" });
+  const r2 = MR * 0.62;
+  el(P, "circle", { cx: MC.x, cy: MC.y, r: r2, style: "fill:var(--rotor)" });
+  const rotor = el(P, "g");
+  for (let k = 0; k < 6; k++) {
+    const a0 = (k * 60) * Math.PI / 180, a1 = (k * 60 + 26) * Math.PI / 180, rr = r2 - 6;
+    el(rotor, "path", { d: `M 0 0 L ${rr * Math.cos(a0)} ${rr * Math.sin(a0)} A ${rr} ${rr} 0 0 1 ${rr * Math.cos(a1)} ${rr * Math.sin(a1)} Z`, style: "fill:var(--blade)" });
+  }
+  el(rotor, "circle", { cx: 0, cy: 0, r: 13, fill: "#5a626c" });
+  el(rotor, "rect", { x: -3, y: -13, width: 6, height: 8, style: "fill:var(--coil)" });
+  el(P, "text", { x: MC.x, y: MC.y + MR - 20, "text-anchor": "middle", fill: "#fff", class: "pw-label pw-motor" }, "M 3~");
+  const arc = el(P, "path", { fill: "none", "stroke-width": 5, "stroke-linecap": "round", "marker-end": "url(#arr)" });
+  const rpmT = el(P, "text", { x: MC.x, y: 40, "text-anchor": "middle", class: "rpm" });
+  const dirT = el(P, "text", { x: MC.x, y: 62, "text-anchor": "middle", class: "pw-label pw-dir" });
+  const seqT = el(P, "text", { x: MC.x, y: 80, "text-anchor": "middle", class: "pw-small pw-seq" });
+
+  function arcPath(cw) {
+    const R = MR + 24, a = cw ? [210, 310] : [330, 230];
+    const p = d => [MC.x + R * Math.cos(d * Math.PI / 180), MC.y + R * Math.sin(d * Math.PI / 180)];
+    const [s, e] = [p(a[0]), p(a[1])];
+    return `M ${s[0]} ${s[1]} A ${R} ${R} 0 0 ${cw ? 1 : 0} ${e[0]} ${e[1]}`;
+  }
+
+  function renderPower() {
+    for (const [e, prop, fn] of binds) {
+      const v = fn();
+      if (prop === "text") { if (e.textContent !== v) e.textContent = v; }
+      else if (prop === "stroke" || prop === "fill") e.style[prop] = v;
+      else e.setAttribute(prop, v);
+    }
+    rotor.setAttribute("transform", `translate(${MC.x} ${MC.y}) rotate(${S.angle})`);
+    const moving = Math.abs(S.speed) > 0.05, cw = S.speed > 0;
+    arc.style.display = moving ? "" : "none";
+    if (moving) {
+      const c = cw ? "var(--ok)" : "var(--noflow)";
+      arc.setAttribute("d", arcPath(cw)); arc.style.stroke = c; arrowHead.style.fill = c;
+    }
+    rpmT.textContent = `${Math.round(Math.abs(S.speed) * 1730)} rpm`;
+    dirT.textContent = !moving ? "Parado" : cw ? "Sentido horário (direto)" : "Sentido anti-horário (reverso)";
+    dirT.style.fill = !moving ? "var(--muted)" : cw ? "var(--ok)" : "var(--noflow)";
+    const p = [0, 1, 2].map(terminalPhase);
+    seqT.textContent = p.every(v => v >= 0) ? `U1-V1-W1 recebem ${p.map(v => PH[v]).join("-")}` : "";
+  }
+
+  // ---------------- Mensagem de estado ----------------
+  const banner = $("banner"), bnT = $("bnT"), bnB = $("bnB"), rearm = $("rearm");
+  let lastMsg = "";
+  function renderBanner() {
+    let cls, t, b;
+    if (S.tripped) {
+      cls = "bad"; t = "Curto-circuito entre fases";
+      b = "K1 e K2 ligaram ao mesmo tempo e o disjuntor Q1 desarmou. " + (S.interlock ? "Solte os botões e rearme." : "Religue o intertravamento (contato NF da saída oposta) e rearme.");
+    } else if (S.plug > 0) {
+      cls = "warn"; t = "Reversão com o motor girando";
+      b = "Frenagem por contracorrente: pico de corrente e esforço mecânico. Na prática, desligue e espere parar antes de inverter.";
+    } else if (S.Q.direta) {
+      cls = "good"; t = "K1 (DIRETA) ligado";
+      b = "K1 liga as fases na ordem L1→U1, L2→V1, L3→W1. O selo pelo contato \"DIRETA\" mantém a bobina ligada depois de soltar LIGA_DIR.";
+    } else if (S.Q.reversa) {
+      cls = "info"; t = "K2 (REVERSA) ligado";
+      b = "K2 troca duas fases: L1 vai para W1 e L3 vai para U1 (L2 continua em V1). Com a sequência invertida, o motor muda de sentido.";
+    } else {
+      cls = ""; t = "Motor desligado";
+      b = "Pressione LIGA DIRETA ou LIGA REVERSA. Com o intertravamento ativo, uma saída bloqueia a outra pelo contato NF.";
+    }
+    const key = cls + t + b;
+    if (key !== lastMsg) {
+      banner.className = "banner " + cls; bnT.textContent = t; bnB.textContent = b; rearm.hidden = !S.tripped;
+      lastMsg = key;
+    }
+  }
+  rearm.addEventListener("click", () => {
+    if (S.Q.direta && S.Q.reversa) {
+      bnB.textContent = "As duas saídas continuam ligadas. Pressione DESLIGA e depois rearme.";
+      return;
+    }
+    S.tripped = false; lastMsg = "";
+  });
+
+  // ---------------- LEDs ----------------
+  const sym = { "I124.0": "LIGA_DIR", "I124.1": "LIGA_REV", "I125.0": "DESL", "Q124.0": "DIRETA", "Q124.1": "REVERSA" };
+  const leds = {};
+  const mkLed = (box, addr, cls) => {
+    const d = document.createElement("div");
+    d.className = "led " + cls;
+    d.innerHTML = `<i></i><span>${addr}</span><em>${sym[addr] || ""}</em>`;
+    box.appendChild(d); leds[addr] = d;
+  };
+  for (let i = 0; i < 10; i++) mkLed($("ledsIn"), `I${124 + (i >> 3)}.${i & 7}`, "in");
+  for (let i = 0; i < 6; i++) mkLed($("ledsOut"), `Q124.${i}`, "out");
+  function renderLeds() {
+    const st = { "I124.0": S.I.ligaDir, "I124.1": S.I.ligaRev, "I125.0": S.I.desl, "Q124.0": S.Q.direta, "Q124.1": S.Q.reversa };
+    for (const a in leds) leds[a].classList.toggle("on", !!st[a]);
+    const chips = { dir: S.I.ligaDir, rev: S.I.ligaRev, desl: S.I.desl };
+    document.querySelectorAll("[data-chip]").forEach(c => { const v = chips[c.dataset.chip]; c.textContent = +v; c.classList.toggle("on", v); });
+  }
+
+  // ---------------- Entradas do usuário ----------------
+  function hold(btn, key) {
+    const down = e => { e.preventDefault(); S.mouse[key] = true; btn.classList.add("down"); try { btn.setPointerCapture(e.pointerId); } catch (_) {} };
+    const up = () => { S.mouse[key] = false; btn.classList.remove("down"); };
+    btn.addEventListener("pointerdown", down);
+    ["pointerup", "pointercancel", "lostpointercapture"].forEach(ev => btn.addEventListener(ev, up));
+    btn.addEventListener("contextmenu", e => e.preventDefault());
+    btn.addEventListener("keydown", e => { if ((e.key === " " || e.key === "Enter") && !e.repeat) { e.preventDefault(); S.mouse[key] = true; btn.classList.add("down"); } });
+    btn.addEventListener("keyup", e => { if (e.key === " " || e.key === "Enter") up(); });
+    btn.addEventListener("blur", up);
+  }
+  hold($("bDir"), "dir"); hold($("bRev"), "rev"); hold($("bDesl"), "desl");
+  hold($("mDir"), "dir"); hold($("mRev"), "rev"); hold($("mDesl"), "desl");
+  const keyMap = { d: ["dir", "bDir"], r: ["rev", "bRev"], s: ["desl", "bDesl"] };
+  addEventListener("keydown", e => { const m = keyMap[e.key.toLowerCase()]; if (m && !e.repeat && !e.ctrlKey && !e.metaKey) { S.mouse[m[0]] = true; $(m[1]).classList.add("down"); } });
+  addEventListener("keyup", e => { const m = keyMap[e.key.toLowerCase()]; if (m) { S.mouse[m[0]] = false; $(m[1]).classList.remove("down"); } });
+  addEventListener("blur", () => { for (const k in S.mouse) S.mouse[k] = false; document.querySelectorAll(".pb button, .mbar button").forEach(b => b.classList.remove("down")); });
+
+  $("interlock").addEventListener("change", e => {
+    S.interlock = e.target.checked;
+    $("interlockTxt").textContent = S.interlock ? "NF de REVERSA e DIRETA no programa" : "Removido: as duas saídas podem ligar juntas";
+  });
+
+  // ---------------- Laço principal ----------------
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.1, (now - last) / 1000); last = now;
+    scan(); physics(dt);
+    renderLadder(); renderPower(); renderBanner(); renderLeds();
+    requestAnimationFrame(frame);
+  }
+  scan(); renderLadder(); renderPower(); renderBanner(); renderLeds();
+  requestAnimationFrame(frame);
+})();
+</script>
+
+</body>
+</html>
